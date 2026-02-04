@@ -80,6 +80,7 @@ The script supports inline SSML tags for fine-grained control over speech output
 <emphasis level="moderate">notable</emphasis>    Moderate emphasis
 <emphasis level="reduced">minor</emphasis>       De-emphasize
 ```
+## Usage Examples
 
 ### Pronunciation Control
 ```xml
@@ -89,6 +90,47 @@ The script supports inline SSML tags for fine-grained control over speech output
 <say-as interpret-as="ordinal">1</say-as>               Say "first"
 <say-as interpret-as="date" format="mdy">3/15/2024</say-as>
 ```
+python3 text_to_speech_ssml.py -t "Convert this text to speech." -o audio_test.mp3
+
+python3 text_to_speech_ssml.py -i transcript.txt -o audio_test.mp3 -v female_us_casual
+
+python3 text_to_speech_ssml.py -t "Convert this text to speech." -o audio_test.mp3 -r +20%
+
+```
+
+
+### SSML CONTROL EXAMPLES
+```
+PAUSES:
+  <break time="500ms"/>          - Pause for 500 milliseconds
+  <break time="2s"/>             - Pause for 2 seconds
+  <break strength="weak"/>       - Short pause (like a comma)
+  <break strength="medium"/>     - Medium pause (like a period)
+  <break strength="strong"/>     - Long pause (like a paragraph break)
+
+EMPHASIS:
+  <emphasis level="strong">important</emphasis>     - Emphasize strongly
+  <emphasis level="moderate">notable</emphasis>     - Moderate emphasis
+  <emphasis level="reduced">minor</emphasis>        - De-emphasize
+
+PRONUNCIATION:
+  <phoneme alphabet="ipa" ph="təˈmeɪtoʊ">tomato</phoneme>
+  <say-as interpret-as="spell-out">API</say-as>    - Spell out "A-P-I"
+  <say-as interpret-as="digits">123</say-as>       - Say "one two three"
+  <say-as interpret-as="cardinal">123</say-as>     - Say "one hundred twenty three"
+  <say-as interpret-as="ordinal">1</say-as>        - Say "first"
+  <say-as interpret-as="date" format="mdy">3/15/2024</say-as>
+
+PACING & PITCH (can be applied to sections):
+  <prosody rate="slow">slower speech</prosody>
+  <prosody rate="fast">faster speech</prosody>
+  <prosody rate="150%">50% faster</prosody>
+  <prosody pitch="high">higher pitch</prosody>
+  <prosody pitch="+10%">slightly higher</prosody>
+  <prosody volume="loud">louder</prosody>
+
+SUBSTITUTE TEXT (say one thing while displaying another):
+  <sub alias="World Wide Web Consortium">W3C</sub>
 
 ### Pacing and Pitch (inline)
 ```xml
