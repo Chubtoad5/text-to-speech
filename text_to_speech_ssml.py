@@ -1,13 +1,21 @@
 #!/usr/bin/env python3
 """
-Text-to-Speech with SSML Support
-Control pronunciation, pacing, pauses, emphasis, and more
+Text-to-Speech using Microsoft Edge TTS
+
+Supports speech rate, pitch, and volume adjustments.
+Note: Custom SSML tags are NOT supported by edge-tts due to Microsoft restrictions.
 """
 
 import asyncio
 import edge_tts
 import argparse
 import os
+import re
+
+# SSML Limitation Note:
+# edge-tts no longer supports custom SSML tags (break, emphasis, say-as, etc.)
+# Microsoft only allows a single <voice> tag with a single <prosody> tag.
+# This script strips unsupported SSML tags and uses only the supported prosody parameters.
 
 # Popular natural-sounding voices
 VOICE_OPTIONS = {
@@ -17,37 +25,66 @@ VOICE_OPTIONS = {
     "female_us_casual": "en-US-AriaNeural",
 }
 
-def apply_prosody(text, rate="0%", pitch="0%", volume="100%"):
+# SSML tags that are NOT supported by edge-tts (will be stripped)
+UNSUPPORTED_SSML_TAGS = [
+    'break', 'emphasis', 'say-as', 'phoneme', 'sub', 'prosody',
+    'voice', 'speak', 'p', 's', 'w', 'lang', 'mark', 'desc', 'audio',
+    'mstts:express-as', 'mstts:silence', 'mstts:backgroundaudio'
+]
+
+def detect_ssml_tags(text):
     """
-    Wrap text in prosody tags if non-default values are specified.
+    Detect SSML tags in text and return a list of found tags.
 
     Args:
-        text (str): Plain text or text with inline SSML tags
-        rate (str): Speech rate (-100% to +200%, default 0%)
-        pitch (str): Pitch adjustment (-50% to +50%, default 0%)
-        volume (str): Volume level (0% to 200%, default 100%)
+        text (str): Text that may contain SSML tags
 
     Returns:
-        str: Text optionally wrapped in prosody tags
+        list: List of unique SSML tag names found in the text
     """
-    # Only wrap in prosody if non-default values are specified
-    if rate != "0%" or pitch != "0%" or volume != "100%":
-        return f'<prosody rate="{rate}" pitch="{pitch}" volume="{volume}">{text}</prosody>'
-    return text
+    # Pattern to match SSML tags (both opening and self-closing)
+    pattern = r'</?([a-zA-Z][a-zA-Z0-9:-]*)[^>]*/?>'
+    matches = re.findall(pattern, text)
+    return list(set(matches))
 
-async def text_to_speech_ssml(text, output_filename="output.mp3", voice="male_us_professional", 
+def strip_ssml_tags(text):
+    """
+    Remove all SSML tags from text, keeping only the text content.
+
+    Args:
+        text (str): Text containing SSML tags
+
+    Returns:
+        str: Plain text with all SSML tags removed
+    """
+    # Remove self-closing tags like <break time="1s"/>
+    text = re.sub(r'<[^>]+/>', '', text)
+    # Remove opening tags like <emphasis level="strong">
+    text = re.sub(r'<[a-zA-Z][^>]*>', '', text)
+    # Remove closing tags like </emphasis>
+    text = re.sub(r'</[a-zA-Z][^>]*>', '', text)
+    # Clean up extra whitespace (but preserve paragraph breaks)
+    text = re.sub(r'[ \t]+', ' ', text)
+    text = re.sub(r'\n\s*\n', '\n\n', text)
+    return text.strip()
+
+async def text_to_speech_ssml(text, output_filename="output.mp3", voice="male_us_professional",
                                rate="0%", pitch="0%", volume="100%", use_ssml=True):
     """
-    Convert text to speech using Edge TTS with SSML support
-    
+    Convert text to speech using Edge TTS.
+
+    Note: edge-tts no longer supports custom SSML tags (break, emphasis, say-as, etc.)
+    due to Microsoft restrictions. Only rate, pitch, and volume adjustments are supported.
+    Any SSML tags in the input will be stripped and a warning will be displayed.
+
     Args:
-        text (str): The text to convert (can include SSML tags)
+        text (str): The text to convert (SSML tags will be stripped)
         output_filename (str): Name of the output MP3 file
         voice (str): Voice option key from VOICE_OPTIONS or full voice name
-        rate (str): Speech rate adjustment
-        pitch (str): Pitch adjustment
-        volume (str): Volume adjustment
-        use_ssml (bool): Whether to wrap in SSML (if not already SSML)
+        rate (str): Speech rate adjustment (-100% to +200%)
+        pitch (str): Pitch adjustment (-50% to +50%)
+        volume (str): Volume adjustment (0% to 200%)
+        use_ssml (bool): Whether to apply rate/pitch/volume settings
     """
     try:
         # Get the voice name
@@ -57,25 +94,28 @@ async def text_to_speech_ssml(text, output_filename="output.mp3", voice="male_us
             voice_name = voice
         else:
             voice_name = VOICE_OPTIONS["male_us_professional"]
-        
-        # Apply prosody settings if needed (edge_tts supports inline SSML tags)
-        if use_ssml:
-            ssml_text = apply_prosody(text, rate, pitch, volume)
-        else:
-            ssml_text = text
 
-        # Create TTS communicator with voice parameter
-        # edge_tts handles voice selection and supports inline SSML tags like <break/>, <emphasis>, etc.
-        communicate = edge_tts.Communicate(ssml_text, voice_name)
-        
+        # Check for SSML tags and warn user if found
+        detected_tags = detect_ssml_tags(text)
+        if detected_tags:
+            print(f"⚠ Warning: SSML tags detected but not supported by edge-tts: {', '.join(detected_tags)}")
+            print("  These tags will be stripped. Only --rate, --pitch, and --volume are supported.")
+            print("  Microsoft has restricted edge-tts to prevent custom SSML usage.")
+            # Strip all SSML tags from the text
+            text = strip_ssml_tags(text)
+
+        # Create TTS communicator with voice and prosody parameters
+        # Note: edge-tts only supports rate, pitch, and volume as parameters
+        communicate = edge_tts.Communicate(text, voice_name, rate=rate, pitch=pitch, volume=volume)
+
         # Save to MP3 file
         await communicate.save(output_filename)
-        
+
         print(f"✓ Audio file created successfully: {output_filename}")
         print(f"  Voice: {voice_name}")
         print(f"  Rate: {rate}, Pitch: {pitch}, Volume: {volume}")
         print(f"  File size: {os.path.getsize(output_filename):,} bytes")
-        
+
     except Exception as e:
         print(f"✗ Error creating audio file: {e}")
 
@@ -94,61 +134,59 @@ def read_text_file(filename):
         return None
 
 def show_ssml_examples():
-    """Display SSML examples and documentation"""
+    """Display speech control examples and documentation"""
     examples = """
-=== SSML CONTROL EXAMPLES ===
+=== SPEECH CONTROL OPTIONS ===
 
-PAUSES:
-  <break time="500ms"/>          - Pause for 500 milliseconds
-  <break time="2s"/>             - Pause for 2 seconds
-  <break strength="weak"/>       - Short pause (like a comma)
-  <break strength="medium"/>     - Medium pause (like a period)
-  <break strength="strong"/>     - Long pause (like a paragraph break)
+IMPORTANT: Custom SSML tags (break, emphasis, say-as, phoneme, etc.) are NOT
+supported by edge-tts. Microsoft has restricted the service to prevent custom
+SSML usage. Any SSML tags in your input will be automatically stripped.
 
-EMPHASIS:
-  <emphasis level="strong">important</emphasis>     - Emphasize strongly
-  <emphasis level="moderate">notable</emphasis>     - Moderate emphasis
-  <emphasis level="reduced">minor</emphasis>        - De-emphasize
+SUPPORTED OPTIONS (command-line parameters):
 
-PRONUNCIATION:
-  <phoneme alphabet="ipa" ph="təˈmeɪtoʊ">tomato</phoneme>
-  <say-as interpret-as="spell-out">API</say-as>    - Spell out "A-P-I"
-  <say-as interpret-as="digits">123</say-as>       - Say "one two three"
-  <say-as interpret-as="cardinal">123</say-as>     - Say "one hundred twenty three"
-  <say-as interpret-as="ordinal">1</say-as>        - Say "first"
-  <say-as interpret-as="date" format="mdy">3/15/2024</say-as>
+SPEECH RATE (--rate or -r):
+  --rate="-50%"    - 50% slower than normal
+  --rate="0%"      - Normal speed (default)
+  --rate="+50%"    - 50% faster than normal
+  --rate="+100%"   - Double speed
+  Range: -100% to +200%
 
-PACING & PITCH (can be applied to sections):
-  <prosody rate="slow">slower speech</prosody>
-  <prosody rate="fast">faster speech</prosody>
-  <prosody rate="150%">50% faster</prosody>
-  <prosody pitch="high">higher pitch</prosody>
-  <prosody pitch="+10%">slightly higher</prosody>
-  <prosody volume="loud">louder</prosody>
+PITCH (--pitch or -p):
+  --pitch="-20%"   - Lower pitch
+  --pitch="0%"     - Normal pitch (default)
+  --pitch="+20%"   - Higher pitch
+  Range: -50% to +50%
 
-SUBSTITUTE TEXT (say one thing while displaying another):
-  <sub alias="World Wide Web Consortium">W3C</sub>
+VOLUME (--volume):
+  --volume="50%"   - Half volume
+  --volume="100%"  - Normal volume (default)
+  --volume="150%"  - 50% louder
+  Range: 0% to 200%
 
-EXAMPLE FULL TEXT:
-  Welcome to today's training. <break time="1s"/>
-  We'll cover three topics: <break strength="medium"/>
-  <emphasis level="strong">automation</emphasis>,
-  <break strength="weak"/>
-  infrastructure,
-  <break strength="weak"/>
-  and monitoring.
-  <break time="2s"/>
-  Let's begin with <prosody rate="slow">automation fundamentals</prosody>.
+VOICE OPTIONS (--voice or -v):
+  male_us_professional   - en-US-GuyNeural (default)
+  female_us_professional - en-US-JennyNeural
+  male_us_casual         - en-US-ChristopherNeural
+  female_us_casual       - en-US-AriaNeural
+  Or use any valid Microsoft Edge voice name directly
+
+EXAMPLE COMMANDS:
+  python text_to_speech_ssml.py -i script.txt -o output.mp3
+  python text_to_speech_ssml.py -t "Hello world" --rate="-20%" --pitch="+10%"
+  python text_to_speech_ssml.py -i script.txt -v female_us_professional
+
+NOTE: If your input contains SSML tags, they will be stripped and a warning
+will be displayed. The text content inside the tags will still be spoken.
 """
     print(examples)
 
 async def main():
     parser = argparse.ArgumentParser(
-        description="Convert text to speech with SSML control"
+        description="Convert text to speech using Microsoft Edge TTS"
     )
     parser.add_argument(
         "-i", "--input",
-        help="Input text file (can contain SSML tags)"
+        help="Input text file (SSML tags will be stripped)"
     )
     parser.add_argument(
         "-o", "--output",
@@ -177,12 +215,12 @@ async def main():
     )
     parser.add_argument(
         "-t", "--text",
-        help="Text to convert (can include SSML tags)"
+        help="Text to convert (SSML tags will be stripped)"
     )
     parser.add_argument(
         "--examples",
         action="store_true",
-        help="Show SSML examples and documentation"
+        help="Show supported speech control options"
     )
     
     args = parser.parse_args()
@@ -200,12 +238,11 @@ async def main():
     elif args.text:
         text = args.text
     else:
-        # Default example with SSML
-        text = """Welcome to today's training. <break time="1s"/>
-Today we'll cover <emphasis level="strong">edge infrastructure automation</emphasis>.
-<break time="500ms"/>
+        # Default example text
+        text = """Welcome to today's training.
+Today we'll cover edge infrastructure automation.
 Let's get started."""
-        print(f"No input specified. Using example with SSML markup.")
+        print(f"No input specified. Using example text.")
     
     # Generate audio
     await text_to_speech_ssml(
