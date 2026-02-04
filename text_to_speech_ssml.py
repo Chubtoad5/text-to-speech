@@ -74,9 +74,14 @@ async def text_to_speech_ssml(text, output_filename="output.mp3", voice="male_us
             ssml_text = text_to_ssml(text, voice_name, rate, pitch, volume)
         else:
             ssml_text = text
-        
+
         # Create TTS communicator
-        communicate = edge_tts.Communicate(ssml_text, voice_name)
+        # When using SSML, don't pass voice separately - it's already in the SSML
+        # Passing voice with SSML causes edge_tts to treat SSML as plain text
+        if use_ssml or "<speak" in text:
+            communicate = edge_tts.Communicate(ssml_text)
+        else:
+            communicate = edge_tts.Communicate(ssml_text, voice_name)
         
         # Save to MP3 file
         await communicate.save(output_filename)
