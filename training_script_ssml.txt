@@ -1,0 +1,34 @@
+Welcome to today's training session. <break time="1s"/>
+
+I'm going to train you all on how to automate edge infrastructure. <break time="800ms"/>
+
+<emphasis level="strong">Edge computing</emphasis> brings processing power closer to where data is generated. <break strength="medium"/>
+This reduces latency <break strength="weak"/> and improves performance.
+
+<break time="1.5s"/>
+
+In this session, we'll cover <prosody rate="90%">three key topics</prosody>: <break time="500ms"/>
+
+<emphasis level="moderate">First</emphasis>, infrastructure as code principles. <break time="300ms"/>
+<emphasis level="moderate">Second</emphasis>, container orchestration at the edge. <break time="300ms"/>
+And <emphasis level="moderate">third</emphasis>, monitoring and observability best practices.
+
+<break time="2s"/>
+
+Let's dive into our first topic. <break time="1s"/>
+
+Infrastructure as Code, or <say-as interpret-as="spell-out">IaC</say-as>, allows you to manage infrastructure through code rather than manual processes. <break time="800ms"/>
+
+This approach provides <prosody rate="slow"><emphasis level="strong">consistency, repeatability, and version control</emphasis></prosody> for your infrastructure deployments.
+
+<break time="1.5s"/>
+
+Popular <say-as interpret-as="spell-out">IaC</say-as> tools include Terraform, Ansible, and CloudFormation. <break time="500ms"/>
+
+We'll focus on Terraform today.
+
+<break time="2s"/>
+
+Now let's move to our second topic <break strength="medium"/> container orchestration. <break time="1s"/>
+
+Thank you for your attention. <break time="500ms"/> Let's take questions.
