@@ -17,34 +17,23 @@ VOICE_OPTIONS = {
     "female_us_casual": "en-US-AriaNeural",
 }
 
-def text_to_ssml(text, voice_name, rate="0%", pitch="0%", volume="100%"):
+def apply_prosody(text, rate="0%", pitch="0%", volume="100%"):
     """
-    Convert plain text or SSML to complete SSML document
-    
+    Wrap text in prosody tags if non-default values are specified.
+
     Args:
-        text (str): Plain text or SSML content
-        voice_name (str): Edge TTS voice name
+        text (str): Plain text or text with inline SSML tags
         rate (str): Speech rate (-100% to +200%, default 0%)
         pitch (str): Pitch adjustment (-50% to +50%, default 0%)
         volume (str): Volume level (0% to 200%, default 100%)
-    
+
     Returns:
-        str: Complete SSML document
+        str: Text optionally wrapped in prosody tags
     """
-    # Check if text already contains SSML tags
-    if "<speak" in text:
-        # Already SSML, just return it
-        return text
-    
-    # Wrap plain text in SSML with voice settings
-    ssml = f"""<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US">
-    <voice name="{voice_name}">
-        <prosody rate="{rate}" pitch="{pitch}" volume="{volume}">
-            {text}
-        </prosody>
-    </voice>
-</speak>"""
-    return ssml
+    # Only wrap in prosody if non-default values are specified
+    if rate != "0%" or pitch != "0%" or volume != "100%":
+        return f'<prosody rate="{rate}" pitch="{pitch}" volume="{volume}">{text}</prosody>'
+    return text
 
 async def text_to_speech_ssml(text, output_filename="output.mp3", voice="male_us_professional", 
                                rate="0%", pitch="0%", volume="100%", use_ssml=True):
@@ -69,19 +58,15 @@ async def text_to_speech_ssml(text, output_filename="output.mp3", voice="male_us
         else:
             voice_name = VOICE_OPTIONS["male_us_professional"]
         
-        # Convert to SSML if needed
+        # Apply prosody settings if needed (edge_tts supports inline SSML tags)
         if use_ssml:
-            ssml_text = text_to_ssml(text, voice_name, rate, pitch, volume)
+            ssml_text = apply_prosody(text, rate, pitch, volume)
         else:
             ssml_text = text
 
-        # Create TTS communicator
-        # When using SSML, don't pass voice separately - it's already in the SSML
-        # Passing voice with SSML causes edge_tts to treat SSML as plain text
-        if use_ssml or "<speak" in text:
-            communicate = edge_tts.Communicate(ssml_text)
-        else:
-            communicate = edge_tts.Communicate(ssml_text, voice_name)
+        # Create TTS communicator with voice parameter
+        # edge_tts handles voice selection and supports inline SSML tags like <break/>, <emphasis>, etc.
+        communicate = edge_tts.Communicate(ssml_text, voice_name)
         
         # Save to MP3 file
         await communicate.save(output_filename)
